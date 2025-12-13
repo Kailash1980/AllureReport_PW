@@ -8,6 +8,10 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shaded: [true, false]
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -17,11 +21,47 @@ jobs:
       run: npm ci
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
+    - name: Run Playwright tests (Headless)
+      if: matrix.shaded == true
+      run: npx playwright test --project=chromium-headless
+    - name: Run Playwright tests (Headed)
+      if: matrix.shaded == false
+      run: npx playwright test --project=chromium-headed
+      env:
+        DISPLAY: :99
+    - name: Upload test results
       if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
       with:
-        name: playwright-report
+        name: blob-report-${{ matrix.shaded && 'headless' || 'headed' }}
+        path: blob-report/
+        retention-days: 30
+
+  merge-reports:
+    if: ${{ !cancelled() }}
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Download all blob reports
+      uses: actions/download-artifact@v4
+      with:
+        path: all-blob-reports
+        pattern: blob-report-*
+        merge-multiple: true
+    
+    - name: Merge reports into HTML
+      run: npx playwright merge-reports --reporter html ./all-blob-reports
+    
+    - name: Upload merged HTML report
+      uses: actions/upload-artifact@v4
+      with:
+        name: merged-playwright-report
         path: playwright-report/
         retention-days: 30
