@@ -11,7 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shaded: [true, false]
+        browser: [chromium, firefox, webkit]
+        shard: [1, 2, 3, 4]
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -21,19 +22,13 @@ jobs:
       run: npm ci
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
-    - name: Run Playwright tests (Headless)
-      if: matrix.shaded == true
-      run: npx playwright test --project=chromium-headless
-    - name: Run Playwright tests (Headed)
-      if: matrix.shaded == false
-      run: npx playwright test --project=chromium-headed
-      env:
-        DISPLAY: :99
+    - name: Run Playwright tests in ${{ matrix.browser }} shard ${{ matrix.shard }}/4
+      run: npx playwright test --project=${{ matrix.browser }}-headless --shard=${{ matrix.shard }}/4
     - name: Upload test results
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v4
       with:
-        name: blob-report-${{ matrix.shaded && 'headless' || 'headed' }}
+        name: blob-report-${{ matrix.browser }}-${{ matrix.shard }}
         path: blob-report/
         retention-days: 30
 

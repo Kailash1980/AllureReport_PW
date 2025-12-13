@@ -43,22 +43,19 @@ export default defineConfig({
       },
     },
     {
-      name: 'chromium-headed',
+      name: 'firefox-headless',
       use: { 
-        ...devices['Desktop Chrome'],
-        headless: false,
+        ...devices['Desktop Firefox'],
+        headless: true,
       },
     },
-
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
+    {
+      name: 'webkit-headless',
+      use: { 
+        ...devices['Desktop Safari'],
+        headless: true,
+      },
+    },
 
     /* Test against mobile viewports. */
     // {
