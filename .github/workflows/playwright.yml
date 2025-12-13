@@ -145,6 +145,10 @@ jobs:
             npm run allure:generate
             echo "Report generated successfully"
             ls -la allure-report/data/ | head -10
+            
+            # Add cache-busting timestamp to help with browser caching
+            timestamp=$(date +%s)
+            echo "<!-- Generated at: $timestamp -->" >> allure-report/index.html
           else
             echo "No test result files found"
             mkdir -p allure-report
@@ -172,3 +176,5 @@ jobs:
         publish_dir: ./allure-report
         publish_branch: gh-pages
         keep_files: false
+        force_orphan: true
+        commit_message: 'Deploy Allure Report - ${{ github.sha }}'
