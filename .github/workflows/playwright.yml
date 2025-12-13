@@ -22,7 +22,9 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests in chromium shard ${{ matrix.shard }}/4
-      run: npx playwright test --project=chromium-headless --shard=${{ matrix.shard }}/4
+      run: |
+        node allure-environment.js
+        npx playwright test --project=chromium-headless --shard=${{ matrix.shard }}/4
     - name: Upload blob report
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v4
@@ -70,9 +72,31 @@ jobs:
     - name: Download all Allure results
       uses: actions/download-artifact@v4
       with:
-        path: allure-results
+        path: all-allure-results
         pattern: allure-results-*
-        merge-multiple: true
+        merge-multiple: false
+    
+    - name: Merge Allure results
+      run: |
+        mkdir -p allure-results
+        find all-allure-results -type f -name '*.json' -exec cp {} allure-results/ \;
+        ls -la allure-results/
+    
+    - name: Get Allure history
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/checkout@v4
+      continue-on-error: true
+      with:
+        ref: gh-pages
+        path: gh-pages
+    
+    - name: Copy Allure history
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      continue-on-error: true
+      run: |
+        if [ -d "gh-pages/history" ]; then
+          cp -r gh-pages/history allure-results/history
+        fi
     
     - name: Generate Allure Report
       run: npm run allure:generate
@@ -91,3 +115,4 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./allure-report
         publish_branch: gh-pages
+        keep_files: false
