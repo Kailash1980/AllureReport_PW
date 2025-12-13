@@ -27,8 +27,8 @@ jobs:
       run: npm ci
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
-    - name: Run Playwright tests in chromium shard ${{ matrix.shard }}/4
-      run: npx playwright test --project=chromium-headless --shard=${{ matrix.shard }}/4
+    - name: Run Playwright tests in chromium shard ${{ matrix.shard }}/2
+      run: npx playwright test --project=chromium-headless --shard=${{ matrix.shard }}/2
       continue-on-error: true
     - name: Check for test results
       id: check-results
