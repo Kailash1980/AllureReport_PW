@@ -168,6 +168,7 @@ jobs:
         path: allure-report/
         retention-days: 30
     
+    #GitHub Pages deployment - Disabled (use artifacts instead)
     - name: Deploy Allure Report to GitHub Pages
       if: github.event_name == 'push' && github.ref == 'refs/heads/main' && hashFiles('allure-report/**/*') != ''
       uses: peaceiris/actions-gh-pages@v3
