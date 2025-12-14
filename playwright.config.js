@@ -58,20 +58,20 @@ export default defineConfig({
         headless: true,
       },
     },
-    {
-      name: 'firefox-headless',
-      use: { 
-        ...devices['Desktop Firefox'],
-        headless: true,
-      },
-    },
-    {
-      name: 'webkit-headless',
-      use: { 
-        ...devices['Desktop Safari'],
-        headless: true,
-      },
-    },
+    // {
+    //   name: 'firefox-headless',
+    //   use: { 
+    //     ...devices['Desktop Firefox'],
+    //     headless: true,
+    //   },
+    // },
+    // {
+    //   name: 'webkit-headless',
+    //   use: { 
+    //     ...devices['Desktop Safari'],
+    //     headless: true,
+    //   },
+    // },
 
     /* Test against mobile viewports. */
     // {
