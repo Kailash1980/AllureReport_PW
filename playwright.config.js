@@ -33,7 +33,6 @@ export default defineConfig({
         }]
       ]
     : [
-        ['html'],
         ['allure-playwright', { 
           outputFolder: 'allure-results',
           detail: true,

@@ -27,31 +27,20 @@ jobs:
       run: npm ci
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
-    - name: Run Playwright tests in chromium shard ${{ matrix.shard }}/2
+    - name: Clean old reports
+      run: rm -rf allure-results allure-report playwright-report test-results blob-report
+    - name: Run Playwright tests
       run: npx playwright test --project=chromium-headless --shard=${{ matrix.shard }}/2
       continue-on-error: true
-    - name: Check for test results
-      id: check-results
-      run: |
-        if [ -d "blob-report" ] && [ "$(ls -A blob-report)" ]; then
-          echo "has_blob=true" >> $GITHUB_OUTPUT
-        else
-          echo "has_blob=false" >> $GITHUB_OUTPUT
-        fi
-        if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
-          echo "has_allure=true" >> $GITHUB_OUTPUT
-        else
-          echo "has_allure=false" >> $GITHUB_OUTPUT
-        fi
     - name: Upload blob report
-      if: steps.check-results.outputs.has_blob == 'true'
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: blob-report-${{ matrix.shard }}
         path: blob-report/
         retention-days: 30
     - name: Upload Allure results
-      if: steps.check-results.outputs.has_allure == 'true'
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: allure-results-${{ matrix.shard }}
@@ -59,7 +48,7 @@ jobs:
         retention-days: 30
 
   merge-reports:
-    if: ${{ !cancelled() }}
+    if: always()
     needs: [test]
     runs-on: ubuntu-latest
     steps:
@@ -70,7 +59,10 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Download all blob reports
+    - name: Clean old merged reports
+      run: rm -rf allure-results allure-report playwright-report all-blob-reports all-allure-results
+    
+    - name: Download blob reports
       uses: actions/download-artifact@v4
       continue-on-error: true
       with:
@@ -78,7 +70,7 @@ jobs:
         pattern: blob-report-*
         merge-multiple: true
     
-    - name: Merge reports into HTML
+    - name: Merge Playwright HTML reports
       if: hashFiles('all-blob-reports/**/*') != ''
       run: npx playwright merge-reports --reporter html ./all-blob-reports
       continue-on-error: true
@@ -87,37 +79,22 @@ jobs:
       if: hashFiles('playwright-report/**/*') != ''
       uses: actions/upload-artifact@v4
       with:
-        name: merged-playwright-report
+        name: playwright-html-report
         path: playwright-report/
         retention-days: 30
     
-    - name: Download all Allure results
+    - name: Download Allure results
       uses: actions/download-artifact@v4
       continue-on-error: true
       with:
         path: all-allure-results
         pattern: allure-results-*
-        merge-multiple: false
     
     - name: Merge Allure results
       run: |
         mkdir -p allure-results
-        if [ -d "all-allure-results" ]; then
-          echo "Searching for Allure result files..."
-          find all-allure-results -type f | head -20
-          
-          # Copy all files from nested directories
-          find all-allure-results -type f -exec cp {} allure-results/ \; 2>/dev/null || true
-          
-          echo "Files in allure-results:"
-          ls -la allure-results/ | head -20
-          
-          # Count JSON files
-          json_count=$(find allure-results -name "*-result.json" | wc -l)
-          echo "Found $json_count test result files"
-        else
-          echo "No allure results directory found"
-        fi
+        find all-allure-results -type f -exec cp {} allure-results/ \; 2>/dev/null || true
+        echo "Found $(find allure-results -name "*-result.json" | wc -l) test results"
     
     - name: Get Allure history
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -131,51 +108,30 @@ jobs:
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       continue-on-error: true
       run: |
-        if [ -d "gh-pages/history" ]; then
-          cp -r gh-pages/history allure-results/history
-        fi
+        [ -d "gh-pages/history" ] && cp -r gh-pages/history allure-results/history || true
     
     - name: Generate Allure Report
       run: |
-        if [ -d "allure-results" ] && [ "$(ls -A allure-results 2>/dev/null)" ]; then
-          result_count=$(find allure-results -name "*-result.json" 2>/dev/null | wc -l)
-          echo "Generating report from $result_count test results..."
-          
-          if [ "$result_count" -gt 0 ]; then
-            npm run allure:generate
-            echo "Report generated successfully"
-            ls -la allure-report/data/ | head -10
-            
-            # Add cache-busting timestamp to help with browser caching
-            timestamp=$(date +%s)
-            echo "<!-- Generated at: $timestamp -->" >> allure-report/index.html
-          else
-            echo "No test result files found"
-            mkdir -p allure-report
-            echo "<html><body><h1>No test results found</h1><p>The test results were not collected properly.</p></body></html>" > allure-report/index.html
-          fi
+        if [ "$(find allure-results -name "*-result.json" 2>/dev/null | wc -l)" -gt 0 ]; then
+          npm run allure:generate
+          echo "<!-- Generated at: $(date +%s) -->" >> allure-report/index.html
         else
-          echo "No allure results directory or it's empty"
           mkdir -p allure-report
           echo "<html><body><h1>No test results available</h1></body></html>" > allure-report/index.html
         fi
     
     - name: Upload Allure Report
-      if: hashFiles('allure-report/**/*') != ''
       uses: actions/upload-artifact@v4
       with:
         name: allure-report
         path: allure-report/
         retention-days: 30
     
-    #GitHub Pages deployment - Disabled (use artifacts instead)
-    - name: Deploy Allure Report to GitHub Pages
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && hashFiles('allure-report/**/*') != ''
+    - name: Deploy to GitHub Pages
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./allure-report
         publish_branch: gh-pages
-        keep_files: false
         force_orphan: true
-        commit_message: 'Deploy Allure Report - ${{ github.sha }}'
